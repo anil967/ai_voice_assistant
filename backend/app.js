@@ -23,10 +23,31 @@ import logger from './utils/logger.js';
 
 dotenv.config();
 
-// Connect to MongoDB (runs on module load)
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/college-voice-agent')
-    .then(() => logger.info('✅ Connected to MongoDB'))
-    .catch((err) => logger.error(`❌ MongoDB connection error: ${err.message}`));
+// ── MongoDB connection (serverless-safe) ────────────────────────────────────
+// On Vercel each cold-start is a new process. We cache the connection on
+// globalThis so warm invocations skip the reconnect and avoid the 10 s buffer
+// timeout caused by Mongoose queueing ops while still connecting.
+mongoose.set('bufferCommands', false); // fail fast instead of silently queueing
+
+const connectDB = async () => {
+    if (globalThis._mongoConn && mongoose.connection.readyState === 1) return;
+    try {
+        await mongoose.connect(
+            process.env.MONGODB_URI || 'mongodb://localhost:27017/college-voice-agent',
+            {
+                serverSelectionTimeoutMS: 8000,  // give up selecting a server after 8 s
+                connectTimeoutMS: 8000,           // TCP connect timeout
+                socketTimeoutMS: 45000,           // idle socket timeout
+            }
+        );
+        globalThis._mongoConn = true;
+        logger.info('✅ Connected to MongoDB');
+    } catch (err) {
+        logger.error(`❌ MongoDB connection error: ${err.message}`);
+    }
+};
+
+connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
