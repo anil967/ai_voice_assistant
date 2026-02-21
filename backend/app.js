@@ -31,6 +31,11 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/college-v
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust the first proxy (Vercel edge / reverse proxy).
+// This makes req.ip use X-Forwarded-For correctly and
+// satisfies express-rate-limit's ERR_ERL_FORWARDED_HEADER check.
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 app.use(cors({
@@ -49,12 +54,14 @@ const apiLimiter = rateLimit({
     message: { error: 'Too many requests, please try again after 15 minutes.' },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => req.ip,
 });
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
-    message: { error: 'Too many login attempts. Please wait 15 minutes.' }
+    message: { error: 'Too many login attempts. Please wait 15 minutes.' },
+    keyGenerator: (req) => req.ip,
 });
 
 app.use('/api', apiLimiter);
