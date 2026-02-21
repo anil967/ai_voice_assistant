@@ -24,27 +24,35 @@ import logger from './utils/logger.js';
 dotenv.config();
 
 // ── MongoDB connection (serverless-safe) ────────────────────────────────────
-// On Vercel each cold-start is a new process. We cache the connection on
-// globalThis so warm invocations skip the reconnect and avoid the 10 s buffer
-// timeout caused by Mongoose queueing ops while still connecting.
-mongoose.set('bufferCommands', false); // fail fast instead of silently queueing
+// Cached so warm Vercel invocations skip reconnecting.
+// bufferCommands is left ON (default) so Mongoose queues ops during connect —
+// removing it caused "cannot call before connection" crashes.
+
+let mongoConnPromise = null;
 
 const connectDB = async () => {
-    if (globalThis._mongoConn && mongoose.connection.readyState === 1) return;
-    try {
-        await mongoose.connect(
-            process.env.MONGODB_URI || 'mongodb://localhost:27017/college-voice-agent',
-            {
-                serverSelectionTimeoutMS: 8000,  // give up selecting a server after 8 s
-                connectTimeoutMS: 8000,           // TCP connect timeout
-                socketTimeoutMS: 45000,           // idle socket timeout
-            }
-        );
-        globalThis._mongoConn = true;
+    // Already connected — return immediately
+    if (mongoose.connection.readyState === 1) return;
+
+    // Connection in progress — wait for it instead of opening a second one
+    if (mongoConnPromise) return mongoConnPromise;
+
+    mongoConnPromise = mongoose.connect(
+        process.env.MONGODB_URI || 'mongodb://localhost:27017/college-voice-agent',
+        {
+            serverSelectionTimeoutMS: 8000,
+            connectTimeoutMS: 8000,
+            socketTimeoutMS: 45000,
+        }
+    ).then(() => {
         logger.info('✅ Connected to MongoDB');
-    } catch (err) {
+    }).catch((err) => {
+        mongoConnPromise = null; // allow retry on next request
         logger.error(`❌ MongoDB connection error: ${err.message}`);
-    }
+        throw err; // propagate so middleware returns 503
+    });
+
+    return mongoConnPromise;
 };
 
 const app = express();
