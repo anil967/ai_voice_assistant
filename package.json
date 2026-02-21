@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "AI Voice Agent College Enquiry System",
     "private": true,
+    "type": "module",
     "scripts": {
         "dev": "concurrently --kill-others-on-fail --names \"API,UI\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\" \"npm run dev --prefix backend\" \"npm run dev:force --prefix frontend\"",
         "start": "concurrently --kill-others-on-fail --names \"API,UI\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\" \"npm start --prefix backend\" \"npm run dev --prefix frontend\"",
