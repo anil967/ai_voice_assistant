@@ -47,8 +47,6 @@ const connectDB = async () => {
     }
 };
 
-connectDB();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -87,6 +85,18 @@ const authLimiter = rateLimit({
 
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
+
+// Ensure DB is connected before any route runs (critical for Vercel serverless).
+// connectDB() is cached — on warm invocations it returns instantly.
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        logger.error('DB connection failed on request:', err.message);
+        res.status(503).json({ error: 'Database unavailable. Please try again.' });
+    }
+});
 
 app.get('/api/health', (req, res) => {
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
