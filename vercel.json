@@ -3,6 +3,13 @@
   "buildCommand": "npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
   "rewrites": [
-    { "source": "/((?!api|assets|_next).*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/[[...path]]"
+    },
+    {
+      "source": "/((?!assets|vite\\.svg|favicon\\.ico).*)",
+      "destination": "/index.html"
+    }
   ]
 }
