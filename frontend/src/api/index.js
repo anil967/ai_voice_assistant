@@ -28,6 +28,9 @@ export const updateAgentConfig = (data, token) => api.put('/agent', data, {
 export const getCallHistory = (token, params = '') => api.get(`/calls/history${params ? `?${params}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` }
 });
+export const getCallDetail = (token, id) => api.get(`/calls/${id}/detail`, {
+    headers: { Authorization: `Bearer ${token}` }
+});
 export const logCall = (data) => api.post('/calls/log', data);
 export const getAnalytics = (token) => api.get('/calls/analytics', {
     headers: { Authorization: `Bearer ${token}` }

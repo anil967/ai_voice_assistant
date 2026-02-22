@@ -4,6 +4,7 @@ import { CallLog } from '../models/CallLog.js';
 import { CollegeInfo } from '../models/CollegeInfo.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
+import { getTranscriptFromVapiCall } from '../utils/leadExtractor.js';
 
 const router = express.Router();
 const VAPI_API = 'https://api.vapi.ai';
@@ -136,6 +137,74 @@ router.get('/analytics', protect, adminOnly, async (req, res) => {
         res.json(stats);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Get full call detail + transcript for a single call (for admin view)
+router.get('/:id/detail', protect, adminOnly, async (req, res) => {
+    const { id } = req.params;
+    const key = process.env.VAPI_PRIVATE_KEY;
+    try {
+        let callMeta = null;
+        let transcriptMessages = [];
+
+        // 1) Try from our DB first
+        const log = await CallLog.findOne({ callId: id }).lean();
+        if (log) {
+            callMeta = {
+                callId: log.callId,
+                callerNumber: log.callerNumber,
+                callType: log.callType,
+                endedReason: log.endedReason,
+                startTime: log.startTime,
+                endTime: log.endTime,
+                duration: log.duration,
+                summary: log.summary,
+                source: 'db',
+            };
+            transcriptMessages = (log.transcript || []).map((t) => ({
+                role: (t.role || '').toLowerCase(),
+                text: t.content || '',
+            }));
+        }
+
+        // 2) If no transcript in DB, fetch from Vapi
+        if ((!transcriptMessages || transcriptMessages.length === 0) && key) {
+            const { data: fullCall } = await axios.get(`${VAPI_API}/call/${id}`, {
+                headers: { Authorization: `Bearer ${key}` },
+                timeout: 10000,
+            });
+            const { transcriptText, messages } = getTranscriptFromVapiCall(fullCall);
+            transcriptMessages = (messages || []).map((m) => ({
+                role: (m.role || '').toLowerCase(),
+                text: m.message || m.content || m.transcript || '',
+            }));
+            if (!callMeta) {
+                callMeta = {
+                    callId: fullCall.id,
+                    callerNumber: fullCall?.customer?.number || 'Web',
+                    callType: (fullCall.type || '').toLowerCase().includes('phone') ? 'Inbound' : 'Web',
+                    endedReason: fullCall.endedReason || 'Customer Ended Call',
+                    startTime: fullCall.startedAt || fullCall.createdAt,
+                    endTime: fullCall.endedAt || null,
+                    duration: fullCall.analysis?.durationSeconds ?? null,
+                    summary: fullCall.analysis?.summary || transcriptText.slice(0, 180),
+                    source: 'vapi',
+                };
+            }
+        }
+
+        if (!callMeta) {
+            return res.status(404).json({ error: 'Call not found' });
+        }
+
+        res.json({
+            ...callMeta,
+            messages: transcriptMessages,
+        });
+    } catch (error) {
+        logger.error(`Call detail fetch failed for ${req.params.id}: ${error.message}`);
+        res.status(500).json({ error: error.response?.data?.message || error.message });
     }
 });
 
