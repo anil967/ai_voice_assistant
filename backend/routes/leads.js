@@ -10,8 +10,8 @@ router.get('/', protect, adminOnly, async (req, res) => {
         const filter = {};
         if (from || to) {
             filter.createdAt = {};
-            if (from) filter.createdAt.$gte = new Date(from);
-            if (to) filter.createdAt.$lte = new Date(to);
+            if (from) filter.createdAt.$gte = new Date(from + (from.includes('T') ? '' : 'T00:00:00.000Z'));
+            if (to) filter.createdAt.$lte = new Date(to + (to.includes('T') ? '' : 'T23:59:59.999Z'));
         }
         if (search && search.trim()) {
             const s = search.trim().toLowerCase();

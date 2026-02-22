@@ -223,36 +223,32 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                 await callLog.save();
                 logger.info(`✅ Call logged: ${callLog.callId} (${duration}s)`);
 
-                // ── Save admission lead from transcript ─
+                // ── Save admission lead (every call) ─
                 const transcript = artifact?.transcript || artifact?.messages || [];
                 let transcriptText;
                 if (typeof transcript === 'string') transcriptText = transcript;
                 else if (Array.isArray(transcript)) transcriptText = transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || t.transcript || '')).join(' ');
                 else transcriptText = String(transcript || '');
-                const summary = (analysis?.summary || '').toLowerCase();
-                const isAdmissionCall = transcriptText.length > 20 || /admission|admit|apply|enrol|name|age|course|percentage|city|area/.test(summary + transcriptText);
-                if (isAdmissionCall) {
-                    try {
-                        const custNum = call?.customer?.number || call?.from?.phoneNumber || '';
-                        const existing = await AdmissionLead.findOne({ callId: call?.id });
-                        if (!existing) {
-                            const extracted = extractLeadFromTranscript(transcriptText, transcript, custNum);
-                            const fallbackLead = new AdmissionLead({
-                                fullName: extracted.fullName || 'Admission enquiry',
-                                age: extracted.age,
-                                twelfthPercentage: extracted.twelfthPercentage,
-                                course: extracted.course,
-                                city: extracted.city,
-                                phone: extracted.phone || custNum,
-                                callId: call?.id || null,
-                                source: 'voice_fallback',
-                            });
-                            await fallbackLead.save();
-                            logger.info(`Admission lead saved: ${fallbackLead.fullName} (${fallbackLead._id})`);
-                        }
-                    } catch (e) {
-                        logger.warn('Admission lead save failed:', e.message);
+                const callPhone = call?.customer?.number || call?.from?.phoneNumber || '';
+                try {
+                    const existing = await AdmissionLead.findOne({ callId: call?.id });
+                    if (!existing && call?.id) {
+                        const extracted = extractLeadFromTranscript(transcriptText, transcript, callPhone);
+                        const lead = new AdmissionLead({
+                            fullName: extracted.fullName || 'Voice call',
+                            age: extracted.age,
+                            twelfthPercentage: extracted.twelfthPercentage,
+                            course: extracted.course,
+                            city: extracted.city,
+                            phone: extracted.phone || callPhone,
+                            callId: call.id,
+                            source: 'voice',
+                        });
+                        await lead.save();
+                        logger.info(`Admission lead saved: ${lead.fullName} (${lead._id})`);
                     }
+                } catch (e) {
+                    logger.error('Admission lead save error:', e.message, e.stack);
                 }
 
                 // ── Post-Call SMS (no email) ──────────────────────────────────
