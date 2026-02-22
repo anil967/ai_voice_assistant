@@ -70,7 +70,7 @@ router.post('/sync-from-vapi', protect, adminOnly, async (req, res) => {
                     headers: { Authorization: `Bearer ${key}` },
                     timeout: 10000,
                 });
-                const { transcriptText, messages } = getTranscriptFromVapiCall(fullCall);
+                const { transcriptText, messages, transcriptDisplay } = getTranscriptFromVapiCall(fullCall);
                 const isAdmission = /admission|admit|apply|enrol|inquir|name|age|course|percentage|city|area|full name|may i have/i.test(transcriptText) || transcriptText.length > 60;
                 if (!isAdmission) {
                     skipped++;
@@ -87,6 +87,7 @@ router.post('/sync-from-vapi', protect, adminOnly, async (req, res) => {
                     phone: extracted.phone || phone,
                     callId,
                     source: 'vapi_sync',
+                    transcript: transcriptDisplay || transcriptText,
                 });
                 await lead.save();
                 created++;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, RefreshCw, Download, CloudDownload } from 'lucide-react';
+import { UserPlus, Search, RefreshCw, Download, CloudDownload, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getLeads, syncLeadsFromVapi } from '../../api';
 
@@ -14,6 +14,7 @@ const AdmissionLeads = () => {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [syncing, setSyncing] = useState(false);
+    const [expandedId, setExpandedId] = useState(null);
 
     const fetchLeads = async () => {
         setLoading(true);
@@ -166,19 +167,62 @@ const AdmissionLeads = () => {
                                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">City</th>
                                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Phone</th>
                                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Transcript</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {leads.map((lead) => (
-                                    <tr key={lead._id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{lead.fullName || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-600">{lead.age || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-600">{lead.twelfthPercentage || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-600">{lead.course || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-600">{lead.city || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-600">{lead.phone || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-500 text-sm">{formatDate(lead.createdAt)}</td>
-                                    </tr>
+                                    <React.Fragment key={lead._id}>
+                                        <tr className="border-b border-gray-50 hover:bg-gray-50/50">
+                                            <td className="px-4 py-3 font-medium text-gray-900">{lead.fullName || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-600">{lead.age || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-600">{lead.twelfthPercentage || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-600">{lead.course || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-600">{lead.city || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-600">{lead.phone || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-500 text-sm">{formatDate(lead.createdAt)}</td>
+                                            <td className="px-4 py-3">
+                                                {lead.transcript ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExpandedId(expandedId === lead._id ? null : lead._id)}
+                                                        className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-sm font-medium hover:bg-primary-100"
+                                                    >
+                                                        <MessageSquare size={14} />
+                                                        {expandedId === lead._id ? 'Hide' : 'View'}
+                                                        {expandedId === lead._id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-gray-400 text-sm">—</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                        {expandedId === lead._id && lead.transcript && (
+                                            <tr className="bg-gray-50/80">
+                                                <td colSpan={8} className="px-4 py-4">
+                                                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Conversation transcript</p>
+                                                        <div className="space-y-3 max-h-80 overflow-y-auto text-sm whitespace-pre-wrap">
+                                                            {lead.transcript.split(/\n\n+/).map((block, i) => {
+                                                                const b = block.trim();
+                                                                const isAssistant = b.startsWith('Assistant:');
+                                                                const isUser = b.startsWith('User:');
+                                                                const label = isUser ? 'User' : isAssistant ? 'Assistant' : null;
+                                                                const msg = label ? b.slice(label.length + 2).trim() : b;
+                                                                if (!msg) return null;
+                                                                return (
+                                                                    <div key={i} className={isAssistant ? 'pl-3 border-l-2 border-primary-200' : 'pl-3 border-l-2 border-emerald-200'}>
+                                                                        <span className="font-semibold text-gray-600">{label || '—'}: </span>
+                                                                        <span className="text-gray-800">{msg}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>

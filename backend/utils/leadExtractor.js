@@ -1,6 +1,6 @@
 /**
- * Extract admission lead fields from conversation transcript text and/or message array.
- * Used by webhook (end-of-call-report) and by sync-from-vapi (Vapi API call detail).
+ * Extract admission lead fields from conversation transcript.
+ * In admission flow: 1st user msg = admission intent, 2nd = name, 3rd = age, 4th = 12th%, 5th = course, 6th = city.
  */
 export function extractLeadFromTranscript(text, messages, phone) {
     const t = (text || '').toLowerCase();
@@ -15,11 +15,13 @@ export function extractLeadFromTranscript(text, messages, phone) {
         const userBlocks = text.match(/(?:user|caller):\s*([^\n]+)/gi) || text.match(/Customer:\s*([^\n]+)/gi) || [];
         userMsgs = userBlocks.map((b) => b.replace(/^(user|caller|customer):\s*/i, '').trim()).filter(Boolean);
     }
-    const fullName = userMsgs[0] || (t.match(/(?:my name is|i(?:'m| am) )([^.?!,\n]+)/i)?.[1]?.trim()) || '';
-    const age = userMsgs[1] || (t.match(/(?:age|i(?:'m| am) )(\d+)/i)?.[1]) || '';
-    const pct = userMsgs[2] || (/(\d{2,3})\s*%/.exec(t)?.[1] || /\b(\d{2,3})\s*(?:percent)/i.exec(t)?.[1]) || '';
-    const course = userMsgs[3] || (t.match(/(?:course|interested in|want)\s*(?:is|:)?\s*([^.?!,\n]+)/i)?.[1]?.trim()) || '';
-    const city = userMsgs[4] || (t.match(/(?:from|city|area|i am from)\s*(?:is|:)?\s*([^.?!,\n]+)/i)?.[1]?.trim()) || '';
+    const isAdmissionIntent = (s) => /admission|inquir|apply|enrol|want to|interested/.test((s || '').toLowerCase()) || (s || '').includes('?');
+    const nameFrom0 = userMsgs[0];
+    const fullName = (userMsgs[1] || (!isAdmissionIntent(nameFrom0) && nameFrom0) || '').trim();
+    const age = (userMsgs[2] || (t.match(/(?:age|i(?:'m| am) )(\d+)/i)?.[1]) || '').trim();
+    const pct = userMsgs[3] || (/(\d{2,3})\s*%/.exec(t)?.[1] || /\b(\d{2,3})\s*(?:percent)/i.exec(t)?.[1]) || '';
+    const course = (userMsgs[4] || (t.match(/(?:course|interested in|want)\s*(?:is|:)?\s*([^.?!,\n]+)/i)?.[1]?.trim()) || '').trim();
+    const city = (userMsgs[5] || (t.match(/(?:from|city|area|i am from)\s*(?:is|:)?\s*([^.?!,\n]+)/i)?.[1]?.trim()) || '').trim();
     return {
         fullName: String(fullName || '').slice(0, 200),
         age: String(age || '').slice(0, 50),
@@ -30,8 +32,23 @@ export function extractLeadFromTranscript(text, messages, phone) {
     };
 }
 
+/** Format messages array as "Assistant: ...\nUser: ..." transcript string. */
+export function formatTranscriptAsVapi(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) return '';
+    return messages
+        .map((m) => {
+            const role = (m.role || '').toLowerCase();
+            const label = /assistant|agent/.test(role) ? 'Assistant' : /user|caller|customer/.test(role) ? 'User' : role || 'User';
+            const msg = (m.message || m.content || m.transcript || '').trim();
+            return msg ? `${label}: ${msg}` : '';
+        })
+        .filter(Boolean)
+        .join('\n\n');
+}
+
 /**
  * Build transcript text and messages array from Vapi call object (GET /call/:id response).
+ * Returns transcriptText (for extraction), messages (array), and transcriptDisplay (Assistant: / User: format).
  */
 export function getTranscriptFromVapiCall(call) {
     const artifact = call?.artifact || call?.artifacts;
@@ -46,5 +63,6 @@ export function getTranscriptFromVapiCall(call) {
     }
     const summary = (call?.analysis?.summary || '').toLowerCase();
     const fullText = summary + ' ' + transcriptText;
-    return { transcriptText: fullText, messages };
+    const transcriptDisplay = formatTranscriptAsVapi(messages) || transcriptText;
+    return { transcriptText: fullText, messages, transcriptDisplay };
 }

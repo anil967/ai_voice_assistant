@@ -7,7 +7,7 @@ import { MessageTemplate } from '../models/MessageTemplate.js';
 import { sendSMS } from '../utils/sms.js';
 import { getEnrichedContext } from '../utils/promptEnricher.js';
 import logger from '../utils/logger.js';
-import { extractLeadFromTranscript } from '../utils/leadExtractor.js';
+import { extractLeadFromTranscript, formatTranscriptAsVapi } from '../utils/leadExtractor.js';
 
 const router = express.Router();
 
@@ -207,6 +207,7 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                     const existing = await AdmissionLead.findOne({ callId: call?.id });
                     if (!existing && call?.id) {
                         const extracted = extractLeadFromTranscript(transcriptText, transcript, callPhone);
+                        const transcriptDisplay = formatTranscriptAsVapi(transcript);
                         const lead = new AdmissionLead({
                             fullName: extracted.fullName || 'Voice call',
                             age: extracted.age,
@@ -216,6 +217,7 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                             phone: extracted.phone || callPhone,
                             callId: call.id,
                             source: 'voice',
+                            transcript: transcriptDisplay || transcriptText,
                         });
                         await lead.save();
                         logger.info(`Admission lead saved: ${lead.fullName} (${lead._id})`);

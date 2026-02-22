@@ -9,6 +9,7 @@ const admissionLeadSchema = new mongoose.Schema({
     phone: { type: String },
     callId: { type: String },
     source: { type: String, default: 'voice' },
+    transcript: { type: String },
 }, { timestamps: true });
 
 export const AdmissionLead = mongoose.model('AdmissionLead', admissionLeadSchema);
