@@ -72,6 +72,17 @@ const CallHistory = () => {
         fetchData();
     }, [callTypeFilter, dateFrom]);
 
+    // Close modal on ESC key
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && selectedCall) {
+                closeDetail();
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [selectedCall]);
+
     const filteredCalls = calls.filter(
         (call) =>
             !searchTerm ||
@@ -269,69 +280,106 @@ const CallHistory = () => {
                 </div>
             </div>
 
-            {/* Detail panel for selected call with transcript */}
+            {/* Modal for call transcript */}
             {selectedCall && (
-                <div className="mt-6 card border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                <MessageSquare size={18} className="text-primary-600" />
-                                Call Transcript
-                            </h2>
-                            <p className="text-xs text-gray-500">
-                                Call ID: <span className="font-mono">{selectedCall.callId}</span>
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={closeDetail}
-                            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                        >
-                            <X size={16} />
-                        </button>
-                    </div>
-                    <div className="p-6">
-                        {detailLoading && (
-                            <div className="text-gray-400 text-sm">Loading transcript...</div>
-                        )}
-                        {!detailLoading && !callDetail && (
-                            <div className="text-gray-400 text-sm">No transcript available for this call.</div>
-                        )}
-                        {!detailLoading && callDetail && (
-                            <div className="space-y-4 max-h-[420px] overflow-y-auto">
-                                {Array.isArray(callDetail.messages) && callDetail.messages.length > 0 ? (
-                                    callDetail.messages.map((m, idx) => {
-                                        const role = (m.role || '').toLowerCase();
-                                        const isAssistant = role.includes('assistant');
-                                        const isUser = role.includes('user') || role.includes('caller') || role.includes('customer');
-                                        const label = isAssistant ? 'Assistant' : isUser ? 'User' : role || 'Message';
-                                        const text = m.text || '';
-                                        if (!text) return null;
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
-                                            >
-                                                <div
-                                                    className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
-                                                        isAssistant
-                                                            ? 'bg-blue-50 text-gray-900 border border-blue-100'
-                                                            : 'bg-emerald-50 text-gray-900 border border-emerald-100'
-                                                    }`}
-                                                >
-                                                    <p className="text-[11px] font-semibold text-gray-500 uppercase mb-1">
-                                                        {label}
-                                                    </p>
-                                                    <p className="text-gray-900 whitespace-pre-wrap">{text}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className="text-gray-400 text-sm">No transcript messages found.</div>
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+                    onClick={closeDetail}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col dark:bg-gray-800 dark:text-gray-100"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                    <MessageSquare size={20} className="text-primary-600" />
+                                    Call Transcript
+                                </h2>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Call ID: <span className="font-mono">{selectedCall.callId}</span>
+                                </p>
+                                {callDetail && (
+                                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <span>
+                                            Duration: <span className="font-medium">{formatDuration(callDetail.duration)}</span>
+                                        </span>
+                                        <span>
+                                            Type: <span className="font-medium">{callDetail.callType || 'Web'}</span>
+                                        </span>
+                                        {callDetail.callerNumber && (
+                                            <span>
+                                                Caller: <span className="font-medium">{callDetail.callerNumber}</span>
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                        )}
+                            <button
+                                type="button"
+                                onClick={closeDetail}
+                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {detailLoading && (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-gray-400 dark:text-gray-500 text-sm">Loading transcript...</div>
+                                </div>
+                            )}
+                            {!detailLoading && !callDetail && (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-gray-400 dark:text-gray-500 text-sm">No transcript available for this call.</div>
+                                </div>
+                            )}
+                            {!detailLoading && callDetail && (
+                                <div className="space-y-4">
+                                    {(() => {
+                                        const displayMessages = (Array.isArray(callDetail.messages) ? callDetail.messages : []).filter(
+                                            (m) => (m.role || '').toLowerCase() !== 'system'
+                                        );
+                                        return displayMessages.length > 0 ? (
+                                        displayMessages.map((m, idx) => {
+                                            const role = (m.role || '').toLowerCase();
+                                            const isAssistant = role.includes('assistant');
+                                            const isUser = role.includes('user') || role.includes('caller') || role.includes('customer');
+                                            const label = isAssistant ? 'Assistant' : isUser ? 'User' : role || 'Message';
+                                            const text = m.text || '';
+                                            if (!text) return null;
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
+                                                >
+                                                    <div
+                                                        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                                                            isAssistant
+                                                                ? 'bg-blue-50 text-gray-900 border border-blue-100 dark:bg-blue-900/20 dark:text-gray-100 dark:border-blue-800'
+                                                                : 'bg-emerald-50 text-gray-900 border border-emerald-100 dark:bg-emerald-900/20 dark:text-gray-100 dark:border-emerald-800'
+                                                        }`}
+                                                    >
+                                                        <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1.5">
+                                                            {label}
+                                                        </p>
+                                                        <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">{text}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                        ) : (
+                                            <div className="flex items-center justify-center py-12">
+                                                <div className="text-gray-400 dark:text-gray-500 text-sm">No transcript messages found.</div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

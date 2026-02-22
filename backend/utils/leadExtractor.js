@@ -39,7 +39,7 @@ export function formatTranscriptAsVapi(messages) {
         .map((m) => {
             const role = (m.role || '').toLowerCase();
             const label = /assistant|agent/.test(role) ? 'Assistant' : /user|caller|customer/.test(role) ? 'User' : role || 'User';
-            const msg = (m.message || m.content || m.transcript || '').trim();
+            const msg = (m.text || m.message || m.content || m.transcript || '').trim();
             return msg ? `${label}: ${msg}` : '';
         })
         .filter(Boolean)
@@ -47,20 +47,71 @@ export function formatTranscriptAsVapi(messages) {
 }
 
 /**
+ * Normalize any message-like object to { role, text }.
+ */
+function toMessage(m) {
+    if (!m) return null;
+    const role = (m.role || m.speaker || '').toLowerCase();
+    const text = (m.message || m.content || m.transcript || m.text || '').trim();
+    if (!text) return null;
+    return { role: role || 'user', text };
+}
+
+/**
+ * Parse a plain string transcript (e.g. "Assistant: hello\n\nUser: hi") into messages array.
+ */
+function parseTranscriptString(str) {
+    if (!str || typeof str !== 'string') return [];
+    const messages = [];
+    const blocks = str.split(/\n\n+/);
+    for (const block of blocks) {
+        const b = block.trim();
+        let role = 'user';
+        let text = b;
+        if (/^(?:assistant|agent)\s*:/i.test(b)) {
+            role = 'assistant';
+            text = b.replace(/^(?:assistant|agent)\s*:\s*/i, '').trim();
+        } else if (/^user\s*:/i.test(b)) {
+            role = 'user';
+            text = b.replace(/^user\s*:\s*/i, '').trim();
+        } else if (/^caller\s*:/i.test(b)) {
+            role = 'user';
+            text = b.replace(/^caller\s*:\s*/i, '').trim();
+        }
+        if (text) messages.push({ role, text });
+    }
+    return messages;
+}
+
+/**
  * Build transcript text and messages array from Vapi call object (GET /call/:id response).
- * Returns transcriptText (for extraction), messages (array), and transcriptDisplay (Assistant: / User: format).
+ * Tries multiple possible response shapes.
  */
 export function getTranscriptFromVapiCall(call) {
-    const artifact = call?.artifact || call?.artifacts;
-    const transcript = artifact?.transcript || artifact?.messages || call?.transcript;
     let transcriptText = '';
     let messages = [];
-    if (typeof transcript === 'string') {
+
+    const artifact = call?.artifact || call?.artifacts;
+    const topLevelMessages = call?.messages;
+    const transcript = artifact?.transcript || artifact?.messages || call?.transcript;
+
+    if (Array.isArray(topLevelMessages) && topLevelMessages.length > 0) {
+        messages = topLevelMessages.map(toMessage).filter(Boolean);
+    }
+    if (messages.length === 0 && Array.isArray(transcript)) {
+        messages = transcript.map(toMessage).filter(Boolean);
+    }
+    if (messages.length === 0 && typeof transcript === 'string') {
+        messages = parseTranscriptString(transcript);
         transcriptText = transcript;
-    } else if (Array.isArray(transcript)) {
-        messages = transcript;
+    }
+    if (messages.length === 0 && transcriptText === '' && typeof transcript === 'string') {
+        transcriptText = transcript;
+    }
+    if (Array.isArray(transcript) && transcriptText === '') {
         transcriptText = transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || t.transcript || '')).join(' ');
     }
+
     const summary = (call?.analysis?.summary || '').toLowerCase();
     const fullText = summary + ' ' + transcriptText;
     const transcriptDisplay = formatTranscriptAsVapi(messages) || transcriptText;

@@ -144,11 +144,11 @@ router.get('/analytics', protect, adminOnly, async (req, res) => {
 router.get('/:id/detail', protect, adminOnly, async (req, res) => {
     const { id } = req.params;
     const key = process.env.VAPI_PRIVATE_KEY;
-    try {
-        let callMeta = null;
-        let transcriptMessages = [];
+    let callMeta = null;
+    let transcriptMessages = [];
 
-        // 1) Try from our DB first
+    // 1) Try from our DB first (don't fail the whole request if DB times out)
+    try {
         const log = await CallLog.findOne({ callId: id }).lean();
         if (log) {
             callMeta = {
@@ -162,23 +162,28 @@ router.get('/:id/detail', protect, adminOnly, async (req, res) => {
                 summary: log.summary,
                 source: 'db',
             };
-            transcriptMessages = (log.transcript || []).map((t) => ({
-                role: (t.role || '').toLowerCase(),
-                text: t.content || '',
-            }));
+            transcriptMessages = (log.transcript || [])
+                .map((t) => ({ role: (t.role || '').toLowerCase(), text: t.content || '' }))
+                .filter((t) => t.role !== 'system');
         }
+    } catch (dbErr) {
+        logger.warn(`Call detail DB lookup failed for ${id}: ${dbErr.message}`);
+    }
 
-        // 2) If no transcript in DB, fetch from Vapi
-        if ((!transcriptMessages || transcriptMessages.length === 0) && key) {
+    // 2) If no transcript yet, fetch from Vapi
+    if ((!transcriptMessages || transcriptMessages.length === 0) && key) {
+        try {
             const { data: fullCall } = await axios.get(`${VAPI_API}/call/${id}`, {
                 headers: { Authorization: `Bearer ${key}` },
                 timeout: 10000,
             });
             const { transcriptText, messages } = getTranscriptFromVapiCall(fullCall);
-            transcriptMessages = (messages || []).map((m) => ({
-                role: (m.role || '').toLowerCase(),
-                text: m.message || m.content || m.transcript || '',
-            }));
+            transcriptMessages = (messages || [])
+                .map((m) => ({
+                    role: (m.role || '').toLowerCase(),
+                    text: m.text || m.message || m.content || m.transcript || '',
+                }))
+                .filter((m) => m.role !== 'system');
             if (!callMeta) {
                 callMeta = {
                     callId: fullCall.id,
@@ -192,20 +197,19 @@ router.get('/:id/detail', protect, adminOnly, async (req, res) => {
                     source: 'vapi',
                 };
             }
+        } catch (vapiErr) {
+            logger.warn(`Call detail Vapi fetch failed for ${id}: ${vapiErr.message}`);
         }
-
-        if (!callMeta) {
-            return res.status(404).json({ error: 'Call not found' });
-        }
-
-        res.json({
-            ...callMeta,
-            messages: transcriptMessages,
-        });
-    } catch (error) {
-        logger.error(`Call detail fetch failed for ${req.params.id}: ${error.message}`);
-        res.status(500).json({ error: error.response?.data?.message || error.message });
     }
+
+    if (!callMeta) {
+        return res.status(404).json({ error: 'Call not found' });
+    }
+
+    res.json({
+        ...callMeta,
+        messages: transcriptMessages,
+    });
 });
 
 export default router;
