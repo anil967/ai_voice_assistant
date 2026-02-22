@@ -120,14 +120,21 @@ Founder/Leadership data: ${leadership}
 
                 const extraContext = await getEnrichedContext(config);
                 const admissionBlock = `
-### ADMISSION FLOW (OVERRIDES EVERYTHING BELOW — use the tools):
-When the caller says "admission", "all admission", "I want admission", "assist me on admission", "admission enquiry", "take admission", "how to apply" — do NOT give OJEE/website/phone. Use getAdmissionQuestion: step 1=name, 2=age, 3=12th grade percentage, 4=course, 5=city. Say exactly the "messageToSay" from each result. After you have all 5 answers, call submitAdmissionLead with fullName, age, twelfthPercentage, course, city (the values the caller gave). Then say: "Thank you. Your details have been recorded and our admission team will contact you soon."
+### ADMISSION FLOW (OVERRIDES EVERYTHING BELOW):
+When the caller says "admission", "all admission", "I want admission", "admission enquiry", "take admission", "how to apply", "assist me on admission" — do NOT give OJEE/website/phone. Do NOT say thank you and end the call. Instead:
+1. Say: "Great! I'll take a few details for our admissions team. May I know your full name?"
+2. Wait for their answer, then ask: "May I know your age?"
+3. Wait for answer, then ask: "What is your 12th grade percentage?"
+4. Wait for answer, then ask: "Which course are you interested in?"
+5. Wait for answer, then ask: "Which city or area are you from?"
+6. After all 5 answers, say: "Thank you. Your details have been recorded and our admission team will contact you soon."
+Ask ONE question at a time. Do not skip. Do not end the call until you have asked all 5 and they have answered.
 `;
                 const dynamicPrompt = `
 ${admissionBlock}
 ### RULE (with admission exception):
 For general questions: answer ONLY from this system prompt. No external knowledge.
-When they say admission: call getAdmissionQuestion(step: 1) and say the returned messageToSay. Do NOT reply with OJEE/website/phone. If unsure about other topics, offer to connect to admissions.
+When they say admission: ASK the 5 questions above (name, age, 12th%, course, city). Do NOT reply with OJEE/website/phone. Do NOT end the call early. If unsure about other topics, offer to connect to admissions.
 ---
 ${systemPromptText}
 
@@ -153,36 +160,6 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
 
                 const firstMsg = config.firstMessage || `Hello! Welcome to ${college.name}. I am your AI admissions assistant. How can I help you today?`;
                 const endMsg = config.endCallMessage || `Thank you for contacting ${college.name}. If you have any questions, feel free to call us anytime. Have a great day!`;
-                const admissionTool = {
-                    type: 'function',
-                    function: {
-                        name: 'getAdmissionQuestion',
-                        description: 'Get the exact phrase to say for admission flow. Step 1=name, 2=age, 3=12th%, 4=course, 5=city. After step 5, call submitAdmissionLead with all 5 answers, then say thank you.',
-                        parameters: {
-                            type: 'object',
-                            properties: { step: { type: 'number', description: '1=name, 2=age, 3=12th%, 4=course, 5=city' } },
-                            required: ['step'],
-                        },
-                    },
-                };
-                const submitLeadTool = {
-                    type: 'function',
-                    function: {
-                        name: 'submitAdmissionLead',
-                        description: 'Call this AFTER you have collected all 5 details: full name, age, 12th grade percentage, course, city. Saves the lead. Call once with all parameters.',
-                        parameters: {
-                            type: 'object',
-                            properties: {
-                                fullName: { type: 'string', description: 'Caller full name' },
-                                age: { type: 'string', description: 'Age or class' },
-                                twelfthPercentage: { type: 'string', description: '12th grade percentage' },
-                                course: { type: 'string', description: 'Course interested in' },
-                                city: { type: 'string', description: 'City or area' },
-                            },
-                            required: ['fullName', 'age', 'twelfthPercentage', 'course', 'city'],
-                        },
-                    },
-                };
                 return res.status(200).json({
                     assistant: {
                         name: `${college.name} AI Assistant`,
@@ -193,7 +170,6 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                             model: 'gpt-3.5-turbo',
                             messages: [{ role: 'system', content: dynamicPrompt }],
                             temperature: 0.7,
-                            tools: [admissionTool, submitLeadTool],
                         },
                         voice: {
                             provider: 'cartesia',
