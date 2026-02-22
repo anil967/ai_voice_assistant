@@ -205,6 +205,7 @@ const AdmissionLeads = () => {
                                                         <div className="space-y-3 max-h-80 overflow-y-auto text-sm whitespace-pre-wrap">
                                                             {lead.transcript.split(/\n\n+/).map((block, i) => {
                                                                 const b = block.trim();
+                                                                if (/^System:/i.test(b)) return null;
                                                                 const isAssistant = b.startsWith('Assistant:');
                                                                 const isUser = b.startsWith('User:');
                                                                 const label = isUser ? 'User' : isAssistant ? 'Assistant' : null;

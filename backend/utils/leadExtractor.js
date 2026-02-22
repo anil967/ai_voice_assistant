@@ -112,6 +112,9 @@ export function getTranscriptFromVapiCall(call) {
         transcriptText = transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || t.transcript || '')).join(' ');
     }
 
+    // Exclude system prompts from transcript display
+    messages = messages.filter((m) => (m.role || '').toLowerCase() !== 'system');
+
     const summary = (call?.analysis?.summary || '').toLowerCase();
     const fullText = summary + ' ' + transcriptText;
     const transcriptDisplay = formatTranscriptAsVapi(messages) || transcriptText;
