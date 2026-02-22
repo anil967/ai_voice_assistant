@@ -210,9 +210,9 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                     startTime: startedAt,
                     endTime: endedAt,
                     duration,
-                    transcript: (artifact?.transcript || []).map(t => ({
+                    transcript: (Array.isArray(artifact?.transcript) ? artifact.transcript : []).map(t => ({
                         role: t.role,
-                        content: t.message,
+                        content: t.message || t.content || t.transcript,
                         timestamp: new Date()
                     })),
                     summary: analysis?.summary || '',
@@ -223,39 +223,35 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                 await callLog.save();
                 logger.info(`✅ Call logged: ${callLog.callId} (${duration}s)`);
 
-                // ── Fallback: save admission lead from transcript ─
+                // ── Save admission lead from transcript ─
                 const transcript = artifact?.transcript || artifact?.messages || [];
-                const transcriptText = Array.isArray(transcript)
-                    ? transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || t.transcript || '')).join(' ')
-                    : String(transcript || '');
+                let transcriptText;
+                if (typeof transcript === 'string') transcriptText = transcript;
+                else if (Array.isArray(transcript)) transcriptText = transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || t.transcript || '')).join(' ');
+                else transcriptText = String(transcript || '');
                 const summary = (analysis?.summary || '').toLowerCase();
-                const isAdmissionCall = /admission|admit|apply|enrol|take admission|admission enquiry/.test(summary + transcriptText);
+                const isAdmissionCall = transcriptText.length > 20 || /admission|admit|apply|enrol|name|age|course|percentage|city|area/.test(summary + transcriptText);
                 if (isAdmissionCall) {
                     try {
-                        const custNum = call?.customer?.number || '';
+                        const custNum = call?.customer?.number || call?.from?.phoneNumber || '';
                         const existing = await AdmissionLead.findOne({ callId: call?.id });
                         if (!existing) {
                             const extracted = extractLeadFromTranscript(transcriptText, transcript, custNum);
-                            const hasData = extracted.fullName || extracted.phone || extracted.course || extracted.city || extracted.age;
-                            if (hasData) {
-                                const fallbackLead = new AdmissionLead({
-                                    fullName: extracted.fullName || (extracted.phone ? 'Admission enquiry' : 'From call'),
-                                    age: extracted.age,
-                                    twelfthPercentage: extracted.twelfthPercentage,
-                                    course: extracted.course,
-                                    city: extracted.city,
-                                    phone: extracted.phone,
-                                    callId: call?.id || null,
-                                    source: 'voice_fallback',
-                                });
-                                await fallbackLead.save();
-                                logger.info(`Admission lead saved from transcript: ${fallbackLead.fullName} (${fallbackLead._id})`);
-                            } else {
-                                logger.info(`[Webhook] Admission call but no extractable data. Transcript length: ${transcriptText.length}`);
-                            }
+                            const fallbackLead = new AdmissionLead({
+                                fullName: extracted.fullName || 'Admission enquiry',
+                                age: extracted.age,
+                                twelfthPercentage: extracted.twelfthPercentage,
+                                course: extracted.course,
+                                city: extracted.city,
+                                phone: extracted.phone || custNum,
+                                callId: call?.id || null,
+                                source: 'voice_fallback',
+                            });
+                            await fallbackLead.save();
+                            logger.info(`Admission lead saved: ${fallbackLead.fullName} (${fallbackLead._id})`);
                         }
                     } catch (e) {
-                        logger.warn('Fallback lead extract failed:', e.message);
+                        logger.warn('Admission lead save failed:', e.message);
                     }
                 }
 

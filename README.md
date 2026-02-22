@@ -1,80 +1,98 @@
-done # 🎓 College AI Voice Agent — Enquiry System
+# 🎓 College AI Voice Agent
 
-> **An AI-powered voice agent platform for colleges to automate student admissions enquiries using real-time voice calls, database-driven responses, and a full admin dashboard.**
+> **An AI-powered voice agent platform for colleges to automate student admissions enquiries using real-time voice calls, database-driven responses, admission lead capture, and a full admin dashboard.**
 
 ---
 
 ## 📌 Project Overview
 
-Students waste hours trying to get basic admission information. This system replaces the phone-based enquiry queue with an **AI Voice Agent** that answers 24/7, knows the college's real course/fee/hostel data from a database, and logs every call for admin review.
+Students often wait long for basic admission information. This system replaces the phone-based enquiry queue with an **AI Voice Agent** that:
 
-### Core Idea
+- Answers 24/7 on phone and web
+- Uses live college data from MongoDB (courses, fees, hostel, contact)
+- Runs an **admission lead flow**: asks name, age, 12th%, course, city when callers say "admission"
+- Saves admission leads to the admin dashboard
+- Sends SMS follow-up after calls
+- Logs every call for admin review
+
+### Core Flow
+
 ```
-Student dials phone number
+Student calls / uses web voice
         ↓
-Vapi AI Voice Agent picks up
+Vapi AI Voice Agent answers
         ↓
-Speaks using dynamic data from MongoDB
+Dynamic prompt from MongoDB (via webhook or synced assistant)
         ↓
-Answers: Courses, Fees, Hostel, Admissions
+If "admission" → asks: name, age, 12th%, course, city
         ↓
-Admin reviews full call logs in dashboard
+Lead saved to DB (from transcript) + optional SMS sent
+        ↓
+Admin sees leads in Admission Leads page
 ```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 18, Vite 5, Tailwind CSS |
+| **UI** | Lucide Icons, react-hot-toast |
+| **Routing** | React Router v6 |
+| **HTTP** | Axios |
+| **Backend** | Node.js, Express |
+| **Database** | MongoDB Atlas, Mongoose ODM |
+| **Auth** | JWT + bcryptjs |
+| **AI Voice** | Vapi AI (Web SDK, Phone, Management API) |
+| **AI Model** | OpenAI GPT-3.5-turbo (via Vapi) |
+| **RAG** | Custom chunking + embeddings (OpenAI) |
+| **SMS** | Twilio |
+| **Email** | Nodemailer (optional) |
+| **Logging** | Winston, Morgan |
+| **Security** | Helmet, CORS, express-rate-limit, compression |
+| **Deployment** | Vercel (full-stack) |
 
 ---
 
 ## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     FRONTEND (React + Vite)                  │
-│  Public Site: Home / Courses / Facilities / Admissions       │
-│  Admin Panel: Dashboard / Agent Control / Call Logs / Settings│
-│  Voice Modal: Browser-based AI call (Vapi Web SDK)           │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP / Vite Proxy → /api
-┌────────────────────────▼────────────────────────────────────┐
-│                     BACKEND (Node.js + Express)              │
-│  /api/auth      → JWT login / register                       │
-│  /api/college   → College info CRUD                          │
-│  /api/agent     → Agent config CRUD                          │
-│  /api/calls     → Call history logs                          │
-│  /api/vapi      → Vapi assistant sync + phone numbers        │
-│  /api/webhook   → Vapi webhook events (call logging)         │
-│  /api/ai        → Local AI fallback (keyword engine)         │
-└────────────────────────┬────────────────────────────────────┘
-                         │ Mongoose ODM
-┌────────────────────────▼────────────────────────────────────┐
-│           MongoDB Atlas (Cloud Database)                     │
-│  Collections: users, collegeinfos, agentconfigs,            │
-│               calllogs, messagetemplates                     │
-└─────────────────────────────────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────────┐
-│                  Vapi AI Platform                            │
-│  Phone Number → Assistant → GPT-3.5-turbo                   │
-│  System prompt injected from MongoDB via Management API      │
-│  Webhook events sent back to /api/webhook                    │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (React + Vite)                           │
+│  Public: Home / About / Courses / Facilities / Admissions                 │
+│  Admin: Dashboard / College Info / AI Agent / Knowledge / Call History   │
+│         Admission Leads / Automation / Settings                          │
+│  Voice: Browser AI call (Vapi Web SDK)                                    │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ HTTP → /api
+┌────────────────────────────────▼────────────────────────────────────────┐
+│                        BACKEND (Node.js + Express)                        │
+│  /api/auth      → Login, register                                        │
+│  /api/college   → College info CRUD                                      │
+│  /api/agent     → Agent config (prompt, first message, etc.)             │
+│  /api/calls     → Call history                                           │
+│  /api/leads     → Admission leads (admin)                                │
+│  /api/vapi      → Sync assistant to Vapi, list phone numbers             │
+│  /api/webhook   → Vapi events: assistant-request, end-of-call-report     │
+│  /api/knowledge → RAG documents CRUD                                     │
+│  /api/ai        → Local AI fallback (keyword engine)                     │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ Mongoose
+┌────────────────────────────────▼────────────────────────────────────────┐
+│                         MongoDB Atlas                                    │
+│  users | collegeinfos | agentconfigs | calllogs | admissionleads         │
+│  messagetemplates | knowledgedocuments                                   │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────────────┐
+│                         Vapi AI Platform                                 │
+│  Phone → Server URL (webhook) OR Assistant ID (synced)                   │
+│  GPT-3.5-turbo, Cartesia voice                                           │
+│  Webhook: assistant-request → returns dynamic prompt + admission flow    │
+│           end-of-call-report → log call, extract lead, send SMS          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 🚀 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 18, Vite 5, Tailwind CSS |
-| **UI Components** | Lucide Icons, react-hot-toast |
-| **Routing** | React Router v6 |
-| **HTTP Client** | Axios |
-| **Backend** | Node.js, Express 5 |
-| **Database** | MongoDB Atlas, Mongoose |
-| **Auth** | JWT (JSON Web Tokens) + bcryptjs |
-| **AI Voice** | Vapi AI (Web SDK + Phone + Management API) |
-| **Logging** | Winston + Morgan |
-| **Email** | Nodemailer (post-call follow-up) |
-| **Security** | Helmet, CORS, express-rate-limit, compression |
 
 ---
 
@@ -82,63 +100,110 @@ Admin reviews full call logs in dashboard
 
 ```
 major project/
-├── package.json              ← Root: runs both servers with concurrently
+├── package.json              ← Root: concurrently runs frontend + backend
+├── vercel.json               ← Vercel: API routes + SPA
+├── api/
+│   └── [[...path]].js        ← Vercel serverless API handler
 │
-├── frontend/                 ← React + Vite App
-│   ├── index.html
-│   ├── vite.config.js        ← Proxy: /api → localhost:5000
+├── frontend/
+│   ├── vite.config.js        ← Proxy /api → backend
 │   ├── tailwind.config.js
-│   ├── .env                  ← VITE_VAPI_PUBLIC_KEY, VITE_VAPI_ASSISTANT_ID
 │   └── src/
-│       ├── main.jsx          ← App entry point
-│       ├── App.jsx           ← Router + Public/Admin layout
-│       ├── index.css         ← Tailwind + custom animations
-│       ├── api/index.js      ← Axios API service layer
-│       ├── components/
-│       │   ├── Navbar.jsx
-│       │   ├── Footer.jsx
-│       │   ├── VoiceCallModal.jsx   ← Vapi Web SDK voice call
-│       │   └── ProtectedRoute.jsx  ← JWT route guard
-│       ├── layouts/
-│       │   └── AdminLayout.jsx     ← Sidebar admin shell
+│       ├── App.jsx           ← Router, public/admin layouts
+│       ├── api/index.js      ← Axios API client
+│       ├── components/       ← Navbar, Footer, VoiceCallModal, ProtectedRoute
+│       ├── layouts/          ← AdminLayout
 │       └── pages/
-│           ├── Home.jsx / About.jsx / Courses.jsx
-│           ├── Facilities.jsx / Admissions.jsx
-│           ├── NotFound.jsx
+│           ├── Landing.jsx, Home.jsx, About.jsx, Courses.jsx, etc.
 │           └── admin/
-│               ├── Login.jsx        ← JWT auth
-│               ├── DashboardHome.jsx← Stats + charts
-│               ├── CollegeInfo.jsx  ← Edit college data
-│               ├── AgentControl.jsx ← Sync DB → Vapi + phone numbers
-│               ├── CallHistory.jsx  ← View call logs
-│               ├── LiveMonitor.jsx
-│               ├── Automation.jsx
-│               └── Settings.jsx
+│               ├── Login.jsx, DashboardHome.jsx
+│               ├── CollegeInfo.jsx, AgentControl.jsx
+│               ├── Knowledge.jsx       ← RAG documents
+│               ├── CallHistory.jsx
+│               ├── AdmissionLeads.jsx  ← Admission leads table
+│               ├── Automation.jsx, Settings.jsx
+│               └── LiveMonitor.jsx
 │
-├── backend/                  ← Express API Server
-│   ├── server.js             ← Main entry, middleware, routes
-│   ├── seed.js               ← Seeds admin user + sample college data
-│   ├── .env                  ← All secrets (Mongo, JWT, Vapi, SMTP)
+├── backend/
+│   ├── server.js             ← Express server (local)
+│   ├── app.js                ← Express app (used by server + Vercel)
+│   ├── seed.js               ← Admin user + sample college data
 │   ├── models/
-│   │   ├── User.js           ← Admin user (bcrypt password)
-│   │   ├── CollegeInfo.js    ← Courses, fees, facilities, contact
-│   │   ├── AgentConfig.js    ← AI tone, fallback message, prompt
-│   │   ├── CallLog.js        ← Call records from Vapi webhook
-│   │   └── MessageTemplate.js← Email templates
+│   │   ├── User.js
+│   │   ├── CollegeInfo.js
+│   │   ├── AgentConfig.js
+│   │   ├── CallLog.js
+│   │   ├── AdmissionLead.js
+│   │   ├── MessageTemplate.js
+│   │   └── KnowledgeDocument.js
 │   ├── routes/
-│   │   ├── auth.js           ← POST /login, /register
-│   │   ├── college.js        ← GET/PUT college info
-│   │   ├── agent.js          ← GET/PUT agent config
-│   │   ├── calls.js          ← GET call history
-│   │   ├── vapi.js           ← POST /sync, GET /assistant, /phone-numbers
-│   │   ├── webhook.js        ← Vapi event handler (call logging + email)
-│   │   └── ai.js             ← Local AI fallback (free mode)
+│   │   ├── auth.js
+│   │   ├── college.js
+│   │   ├── agent.js
+│   │   ├── calls.js
+│   │   ├── leads.js          ← GET admission leads (admin)
+│   │   ├── webhook.js        ← Vapi: assistant-request, end-of-call-report
+│   │   ├── vapi.js
+│   │   ├── knowledge.js
+│   │   ├── templates.js
+│   │   └── ai.js
 │   ├── middleware/
-│   │   └── auth.js           ← JWT protect + adminOnly guards
+│   │   └── auth.js           ← JWT protect, adminOnly
 │   └── utils/
-│       ├── logger.js         ← Winston logger (console + file)
-│       ├── email.js          ← Nodemailer post-call follow-up email
-│       └── vapiSync.js       ← Builds prompt from DB → Vapi API update
+│       ├── vapiSync.js       ← Build prompt, PATCH Vapi assistant
+│       ├── promptEnricher.js ← Live notices + RAG chunks
+│       ├── rag.js            ← RAG retrieval
+│       ├── liveDataFetcher.js
+│       ├── sms.js            ← Twilio SMS
+│       ├── email.js
+│       └── logger.js
+│
+├── VAPI_SETUP.md             ← Server URL vs Assistant ID
+└── DEPLOY.md                 ← Vercel deployment steps
+```
+
+---
+
+## 🔄 How It Works
+
+### 1. Voice Call Flow
+
+| Step | Event | What Happens |
+|------|-------|--------------|
+| 1 | Caller dials / uses web voice | Vapi answers |
+| 2 | **If Server URL set** | Vapi sends `assistant-request` to your webhook |
+| 3 | Webhook response | Backend returns full assistant (prompt + admission flow) |
+| 4 | **If Assistant ID set** | Vapi uses synced assistant (no webhook for assistant) |
+| 5 | Caller says "admission" | AI asks: name → age → 12th% → course → city |
+| 6 | Call ends | Vapi sends `end-of-call-report` to webhook |
+| 7 | Webhook | Logs call, extracts lead from transcript, sends SMS |
+
+### 2. Admission Lead Capture
+
+- **During call**: AI follows a prompt-only flow (asks 5 questions one by one)
+- **After call**: Webhook receives `end-of-call-report` with transcript
+- **Extraction**: Parses user messages for name, age, 12th%, course, city
+- **Save**: Writes to `AdmissionLead` collection
+- **Admin**: View in **Admin → Admission Leads**, search, export CSV
+
+### 3. Two Modes: Server URL vs Assistant ID
+
+| Mode | Config | When assistant-request is used | Admission flow |
+|------|--------|-------------------------------|----------------|
+| **Server URL** | Phone number → Server URL, no Assistant | Yes (every call) | Dynamic prompt from webhook ✅ |
+| **Assistant ID** | Phone number → Assistant | No | Synced prompt only (from Sync Now) |
+
+**Recommended**: Use **Server URL** on the phone number so every call gets the dynamic admission flow. See `VAPI_SETUP.md`.
+
+### 4. Data Flow (Sync vs Webhook)
+
+```
+Sync (Admin → "Sync Now"):
+  MongoDB → vapiSync.js → PATCH Vapi assistant
+
+Webhook (Server URL set):
+  Call starts → assistant-request → webhook returns assistant
+  Call ends   → end-of-call-report → webhook logs + extracts lead + SMS
 ```
 
 ---
@@ -146,173 +211,122 @@ major project/
 ## ⚙️ Environment Variables
 
 ### `backend/.env`
+
 ```env
 PORT=5000
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/db
-JWT_SECRET=your_jwt_secret
+MONGODB_URI=mongodb+srv://...
+JWT_SECRET=your_secret
 
-VAPI_PUBLIC_KEY=ab75364e-...
-VAPI_PRIVATE_KEY=4cce8e28-...
-VAPI_ASSISTANT_ID=131f3b53-...
-VAPI_WEBHOOK_SECRET=
+VAPI_PUBLIC_KEY=...
+VAPI_PRIVATE_KEY=...
+VAPI_ASSISTANT_ID=...
 
-SMTP_USER=your@gmail.com
-SMTP_PASS=your_app_password
+OPENAI_API_KEY=sk-...
+
+# Optional
+CLIENT_URL=http://localhost:5173
+WEBSITE_URL=bcetodisha.ac.in
+
+# SMS (Twilio)
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=+1...
+
+# Email (optional)
+SMTP_USER=...
+SMTP_PASS=...
 ```
 
 ### `frontend/.env`
+
 ```env
-VITE_VAPI_PUBLIC_KEY=ab75364e-...
-VITE_VAPI_ASSISTANT_ID=131f3b53-...
+VITE_VAPI_PUBLIC_KEY=...
+VITE_VAPI_ASSISTANT_ID=...
 VITE_API_URL=http://localhost:5000
 ```
 
+On Vercel, omit `VITE_API_URL` — frontend and API share the same origin.
+
 ---
 
-## 🛠️ Quick Start
+## 🚀 Quick Start
 
 ```bash
-# 1. Clone and install all dependencies
-git clone <repo>
+# 1. Install
 cd "major project"
 npm run install:all
 
-# 2. Configure environment variables
-# Edit backend/.env and frontend/.env with your keys
+# 2. Configure backend/.env and frontend/.env
 
-# 3. Seed the database (creates admin user + sample college data)
-node backend/seed.js
+# 3. Seed DB (admin user + sample college)
+npm run seed
 
-# 4. Start both servers with one command
+# 4. Run dev servers
 npm run dev
 ```
 
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:5000
-- **Admin Panel**: http://localhost:5173/admin/login
+- **Frontend**: http://localhost:5173  
+- **API**: http://localhost:5000  
+- **Admin**: http://localhost:5173/admin/login  
+
+**Default admin**: `admin@college.com` / `admin123`
 
 ---
 
-## 🔑 Default Admin Credentials
+## 📞 Vapi Setup
 
-| Field | Value |
-|---|---|
-| Email | `admin@college.com` |
-| Password | `admin123` |
+1. Get a phone number at [dashboard.vapi.ai](https://dashboard.vapi.ai)
+2. **For admission flow + lead capture**: Set **Server URL** on the phone number to  
+   `https://your-app.vercel.app/api/webhook/vapi`  
+   and **do not** assign an Assistant
+3. **Or** use Assistant ID and click **Sync Now** in Admin → AI Agent (simpler, no dynamic webhook)
 
-> Change these immediately after first login via Admin → Settings.
-
----
-
-## 📞 Vapi Phone Number Setup
-
-1. Buy a phone number at [dashboard.vapi.ai/phone-numbers](https://dashboard.vapi.ai/phone-numbers)
-2. Under **Inbound Settings**, select your assistant
-3. Click **Save**
-4. In the admin panel → **AI Agent** → click **"Sync Now"**
-
-The AI will now answer that phone number using your live college database. Every call is logged automatically.
+See **VAPI_SETUP.md** for details.
 
 ---
 
-## 🤖 How the AI Knows Your Data
-
-```
-Admin updates College Info (courses, fees, hostel)
-             ↓
-  Clicks "Sync Now" in AI Agent panel
-             ↓
-  Backend reads MongoDB CollegeInfo collection
-             ↓
-  Builds rich system prompt:
-  "You are AI for Skyline Tech.
-   Courses: B.Tech CS — ₹1.5L/yr, 4 years...
-   Hostel: ₹60K/yr, Wi-Fi + gym..."
-             ↓
-  PATCH https://api.vapi.ai/assistant/{id}
-             ↓
-  Assistant updated instantly ✅
-  All future calls use latest data
-```
-
----
-
-## 🎙️ Voice Call Modes
-
-| Mode | How | Cost |
-|---|---|---|
-| **Real Vapi Call** | Uses Vapi Web SDK in browser (keys in .env) | Vapi credits |
-| **Phone Call** | Call the Vapi phone number from any mobile | Vapi credits |
-| **Local Simulation** | Browser Web Speech API + your backend | Free |
-
-The system auto-detects which mode to use based on your `.env` keys.
-
----
-
-## 🔒 Security Features
-
-- JWT authentication with role-based access (admin only)
-- `bcryptjs` password hashing
-- `helmet` HTTP security headers
-- `express-rate-limit` on API + auth routes
-- `cors` restricted to configured origin
-- `compression` for gzip responses
-
----
-
-## 📊 Admin Dashboard Features
+## 📊 Admin Dashboard
 
 | Page | Features |
-|---|---|
-| **Dashboard** | Call stats, weekly volume chart, recent enquiries |
-| **College Info** | Edit courses, fees, eligibility, facilities, contact |
-| **AI Agent** | Sync DB → Vapi, view assistant status, phone numbers |
-| **Call History** | Search, filter call logs from Vapi webhook |
-| **Automation** | Email follow-up templates and settings |
-| **Settings** | Admin profile, password change |
+|------|----------|
+| **Overview** | Stats, charts |
+| **College Info** | Courses, fees, facilities, contact |
+| **AI Agent** | Sync DB → Vapi, first message, system prompt |
+| **Knowledge** | RAG documents (chunking, indexing) |
+| **Call History** | Search, filter call logs |
+| **Admission Leads** | View, search, export CSV |
+| **Automation** | Templates, settings |
+| **Settings** | Profile, password |
 
 ---
 
-## 🌐 Deployment
+## 🌐 Deployment (Vercel)
 
-| Service | Platform |
-|---|---|
-| Frontend | Vercel (free) |
-| Backend | Render / Railway (free tier) |
-| Database | MongoDB Atlas (free 512MB) |
-| AI Voice | Vapi (PAYG credits) |
+Full-stack deploy: frontend + API on one Vercel project.
 
-### Deploy commands
 ```bash
-# Build frontend for production
 npm run build
-
-# Backend: set all .env variables on Render/Railway dashboard
-# Point MONGODB_URI to Atlas cluster
-# Set CLIENT_URL to your Vercel frontend URL
 ```
+
+Add env vars in Vercel, then deploy. See **DEPLOY.md** for steps.
+
+| Component | Host |
+|-----------|------|
+| Frontend + API | Vercel |
+| MongoDB | Atlas |
+| Voice | Vapi |
 
 ---
 
-## 📈 Future Roadmap
+## 📄 Related Docs
 
-- [ ] WhatsApp integration (Twilio)
-- [ ] Multi-language support (Hindi, Tamil, etc.)
-- [ ] Sentiment analysis on call transcripts
-- [ ] Automated follow-up email after every call
-- [ ] Student lead CRM with pipeline tracking
-- [ ] Multi-college SaaS (tenant isolation)
-- [ ] Mobile app for admin (React Native)
-- [ ] Real-time live call monitoring dashboard
+- **VAPI_SETUP.md** — Server URL vs Assistant, admission flow
+- **DEPLOY.md** — Vercel deployment
 
 ---
 
-## 👨‍💻 Development Team
-
-Built with ❤️ using **Vapi AI + MongoDB + React + Node.js**
-
 ```
-Stack: MERN + Vapi AI Voice Platform
-Version: 1.0.0
+Stack: MERN + Vapi AI
+Version: 1.0
 Year: 2026
 ```
