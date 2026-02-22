@@ -58,6 +58,7 @@ const seedData = async () => {
             founder: 'Dr. Manmath Kumar Biswal',
             chairman: 'Dr. Manmath Kumar Biswal (Founder-Chairman)',
             director: 'Prof. (Dr.) Ratikanta Sahoo',
+            website: 'bcetodisha.ac.in',
             contact: {
                 email: 'principal@bcetodisha.ac.in',
                 phone: '(06782) 236045, 9777938474, 9437961413',
@@ -68,7 +69,7 @@ const seedData = async () => {
         // Agent Config
         await AgentConfig.create({
             firstMessage: "Hello! Welcome to BCET - Balasore College of Engineering and Technology. I'm your AI admissions assistant. How can I help you today?",
-            systemPrompt: 'You are an AI admissions assistant for Balasore College of Engineering and Technology (BCET), Odisha. Answer only questions about courses, fees, eligibility, hostel, and admission process. BCET is affiliated to BPUT, approved by AICTE. If a question is outside scope, say: "Please contact our admissions desk at (06782) 236045 or principal@bcetodisha.ac.in." Be warm, concise, and professional.',
+            systemPrompt: 'You are an AI admissions assistant for Balasore College of Engineering and Technology (BCET), Odisha. When callers say "admission" or want to apply, you MUST ask their name, age, area, and desired course (one at a time). Otherwise answer questions about courses, fees, eligibility, hostel, and admission process. BCET is affiliated to BPUT, approved by AICTE. If a question is outside scope, say: "Please contact our admissions desk at (06782) 236045 or principal@bcetodisha.ac.in." Be warm, concise, and professional.',
             tone: 'friendly',
             language: 'English'
         });

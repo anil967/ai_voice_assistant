@@ -24,6 +24,7 @@ import CollegeInfoAdmin from './pages/admin/CollegeInfo';
 import AgentControl from './pages/admin/AgentControl';
 import Knowledge from './pages/admin/Knowledge';
 import CallHistory from './pages/admin/CallHistory';
+import AdmissionLeads from './pages/admin/AdmissionLeads';
 import LiveMonitor from './pages/admin/LiveMonitor';
 import Automation from './pages/admin/Automation';
 import Settings from './pages/admin/Settings';
@@ -98,6 +99,7 @@ function App() {
                         <Route path="knowledge" element={<Knowledge />} />
                         <Route path="live-monitor" element={<LiveMonitor />} />
                         <Route path="calls" element={<CallHistory />} />
+                        <Route path="leads" element={<AdmissionLeads />} />
                         <Route path="automation" element={<Automation />} />
                         <Route path="settings" element={<Settings />} />
                     </Route>

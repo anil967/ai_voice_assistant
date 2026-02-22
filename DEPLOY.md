@@ -47,7 +47,7 @@ git push -u origin main
 
 1. Copy your Vercel URL (e.g. `https://college-ai-xxx.vercel.app`)
 2. Update **CLIENT_URL** in Vercel Environment Variables to that URL
-3. **Vapi Dashboard** → Assistant → **Server URL** = `https://your-app.vercel.app/api/webhook/vapi`
+3. **Vapi Dashboard** → **Phone Numbers** → your number → set **Server URL** = `https://your-app.vercel.app/api/webhook/vapi` and **do not** assign an Assistant (so every call uses the webhook and gets the admission flow). See **VAPI_SETUP.md** for why this is required.
 
 ---
 

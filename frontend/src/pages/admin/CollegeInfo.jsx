@@ -222,6 +222,16 @@ const CollegeInfoAdmin = () => {
                         </div>
                         <div className="space-y-4">
                             <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Website (used in post-call SMS)</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary-500"
+                                    placeholder="bcetodisha.ac.in"
+                                    value={info.website || ''}
+                                    onChange={(e) => setInfo({ ...info, website: e.target.value })}
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
                                 <input
                                     type="email"

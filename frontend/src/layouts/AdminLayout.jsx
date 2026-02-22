@@ -11,7 +11,8 @@ import {
     LogOut,
     Bell,
     GraduationCap,
-    BookOpen
+    BookOpen,
+    UserPlus
 } from 'lucide-react';
 
 const AdminLayout = () => {
@@ -33,6 +34,7 @@ const AdminLayout = () => {
         { name: 'Knowledge', icon: BookOpen, path: '/admin/knowledge' },
         { name: 'Live Monitoring', icon: Headphones, path: '/admin/live-monitor' },
         { name: 'Call History', icon: History, path: '/admin/calls' },
+        { name: 'Admission Leads', icon: UserPlus, path: '/admin/leads' },
         { name: 'Automation', icon: MessageSquare, path: '/admin/automation' },
         { name: 'Settings', icon: Settings, path: '/admin/settings' },
     ];

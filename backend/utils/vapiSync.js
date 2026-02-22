@@ -33,15 +33,22 @@ const buildSystemPrompt = (college, config, extraContext = {}) => {
 "BCT" and "BCET" both refer to this college (callers often say BCT). When the caller asks "who is the founder", "founder of BCT", "founder of BCET", "who started ${shortName}", "founder of the college", "chairman", "director", or similar, you MUST answer from the data below. Do NOT say "I couldn't find information" or "Let me connect you to admissions". Reply with: "Based on our college information, the founder is ${college.founder || 'not listed'}. ${college.chairman ? 'Chairman: ' + college.chairman + '.' : ''} ${college.director ? 'Director: ' + college.director + '.' : ''}"
 Founder/Leadership data: ${leadership}
 ` : '';
-    return `### RULE: Answer ONLY from this system prompt
-When the customer asks any question, answer ONLY using the information provided in this system prompt. Do not use external or general knowledge. If the answer is here, use it; if not, say you don't have that information and offer to connect them to the admissions team.
-
+    const admissionBlock = `
+### ADMISSION FLOW (OVERRIDES EVERYTHING BELOW):
+If the caller says "admission", "all admission", "I want admission", "admission enquiry", "take admission", "how to apply", "course details" — IGNORE any instruction that says "provide phone/website for admissions". Do NOT give OJEE/website/phone yet. Instead, say exactly: "Great! I'll take a few details for our admissions team. May I know your full name?" Then ask ONE BY ONE: age or class, then city/area, then which course. After all 4, repeat back and confirm. Only then you may give website/phone if they ask.
+`;
+    return `${admissionBlock}
+### RULE (with admission exception):
+For general questions: answer ONLY from this system prompt. No external knowledge.
+When they say admission (or "all admission"): ASK name, age, area, course first — do NOT reply with OJEE/website/phone. If unsure about other topics, offer to connect to admissions.
 ---
 ${basePrompt}
 
 ### Current College Information:
 College Name: ${college.name}
-About: ${college.about || 'A premier institution of higher learning.'}
+About: ${(college.about && !college.about.includes('### RULE') && !college.about.includes('Answer ONLY'))
+        ? college.about
+        : (college.name?.includes('BCET') ? 'BCET is a premier engineering college in Balasore, Odisha, affiliated to BPUT and approved by AICTE.' : 'A premier institution of higher learning.')}
 Tagline: ${college.tagline || ''}
 ${founderBlock}
 
@@ -52,8 +59,8 @@ ${courseList || 'Contact us for details.'}
 ${facilityList || 'World-class facilities available.'}
 
 ### Contact:
-Phone: ${college.contact?.phone || 'Contact reception'}
-Email: ${college.contact?.email || 'principal@bcetodisha.ac.in'}
+Phone: ${(college.contact?.phone && !college.contact.phone.includes('99999')) ? college.contact.phone : '9777938474, 9437961413, (06782) 236045'}
+Email: ${(college.contact?.email && !college.contact.email.includes('skyline')) ? college.contact.email : 'principal@bcetodisha.ac.in'}
 Address: ${college.contact?.address || 'NH-16, Sergarh, Balasore (756060), Odisha'}
 ${extraContext.liveNoticesText || ''}
 ${extraContext.ragChunksText || ''}

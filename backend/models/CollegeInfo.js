@@ -24,6 +24,7 @@ const collegeInfoSchema = new mongoose.Schema({
     founder: { type: String },
     chairman: { type: String },
     director: { type: String },
+    website: { type: String },
     contact: {
         email: { type: String },
         phone: { type: String },

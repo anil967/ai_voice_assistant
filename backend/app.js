@@ -19,6 +19,7 @@ import aiRoutes from './routes/ai.js';
 import vapiRoutes from './routes/vapi.js';
 import templateRoutes from './routes/templates.js';
 import knowledgeRoutes from './routes/knowledge.js';
+import leadsRoutes from './routes/leads.js';
 import logger from './utils/logger.js';
 
 dotenv.config();
@@ -129,6 +130,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/vapi', vapiRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/leads', leadsRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ error: `Route ${req.originalUrl} not found` });

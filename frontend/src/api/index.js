@@ -61,4 +61,9 @@ export const updateProfile = (data, token) => api.put('/auth/profile', data, {
 // Register
 export const register = (data) => api.post('/auth/register', data);
 
+// Admission leads (admin)
+export const getLeads = (token, params = '') => api.get(`/leads${params ? `?${params}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` }
+});
+
 export default api;
