@@ -10,14 +10,22 @@ import logger from '../utils/logger.js';
 
 function extractLeadFromTranscript(text, messages, phone) {
     const t = (text || '').toLowerCase();
-    const userMsgs = Array.isArray(messages)
-        ? messages.filter((m) => /user|caller/.test((m.role || '').toLowerCase())).map((m) => (m.message || m.content || '').trim()).filter(Boolean)
-        : [];
-    const fullName = userMsgs[0] || (t.match(/(?:name is|i(?:'m| am) )([^.?!,]+)/i)?.[1]?.trim()) || '';
+    let userMsgs = [];
+    if (Array.isArray(messages)) {
+        userMsgs = messages
+            .filter((m) => /user|caller|customer/.test((m.role || '').toLowerCase()))
+            .map((m) => (m.message || m.content || m.transcript || '').trim())
+            .filter(Boolean);
+    }
+    if (userMsgs.length === 0 && text) {
+        const userBlocks = text.match(/(?:user|caller):\s*([^\n]+)/gi) || text.match(/Customer:\s*([^\n]+)/gi) || [];
+        userMsgs = userBlocks.map((b) => b.replace(/^(user|caller|customer):\s*/i, '').trim()).filter(Boolean);
+    }
+    const fullName = userMsgs[0] || (t.match(/(?:my name is|i(?:'m| am) )([^.?!,\n]+)/i)?.[1]?.trim()) || '';
     const age = userMsgs[1] || (t.match(/(?:age|i(?:'m| am) )(\d+)/i)?.[1]) || '';
     const pct = userMsgs[2] || (/(\d{2,3})\s*%/.exec(t)?.[1] || /\b(\d{2,3})\s*(?:percent)/i.exec(t)?.[1]) || '';
-    const course = userMsgs[3] || '';
-    const city = userMsgs[4] || '';
+    const course = userMsgs[3] || (t.match(/(?:course|interested in|want)\s*(?:is|:)?\s*([^.?!,\n]+)/i)?.[1]?.trim()) || '';
+    const city = userMsgs[4] || (t.match(/(?:from|city|area|i am from)\s*(?:is|:)?\s*([^.?!,\n]+)/i)?.[1]?.trim()) || '';
     return {
         fullName: String(fullName || '').slice(0, 200),
         age: String(age || '').slice(0, 50),
@@ -215,27 +223,35 @@ ${config.fallbackMessage ? `### If unsure: ${config.fallbackMessage}` : ''}
                 await callLog.save();
                 logger.info(`✅ Call logged: ${callLog.callId} (${duration}s)`);
 
-                // ── Fallback: save admission lead from transcript if tool wasn't called ─
+                // ── Fallback: save admission lead from transcript ─
                 const transcript = artifact?.transcript || artifact?.messages || [];
                 const transcriptText = Array.isArray(transcript)
-                    ? transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || '')).join(' ')
-                    : String(transcript);
+                    ? transcript.map((t) => (typeof t === 'string' ? t : t.message || t.content || t.transcript || '')).join(' ')
+                    : String(transcript || '');
                 const summary = (analysis?.summary || '').toLowerCase();
-                const isAdmissionCall = /admission|admit|apply|course|enrol/.test(summary + transcriptText);
+                const isAdmissionCall = /admission|admit|apply|enrol|take admission|admission enquiry/.test(summary + transcriptText);
                 if (isAdmissionCall) {
                     try {
                         const custNum = call?.customer?.number || '';
                         const existing = await AdmissionLead.findOne({ callId: call?.id });
                         if (!existing) {
                             const extracted = extractLeadFromTranscript(transcriptText, transcript, custNum);
-                            if (extracted.fullName && extracted.fullName.length > 1) {
+                            const hasData = extracted.fullName || extracted.phone || extracted.course || extracted.city || extracted.age;
+                            if (hasData) {
                                 const fallbackLead = new AdmissionLead({
-                                    ...extracted,
+                                    fullName: extracted.fullName || (extracted.phone ? 'Admission enquiry' : 'From call'),
+                                    age: extracted.age,
+                                    twelfthPercentage: extracted.twelfthPercentage,
+                                    course: extracted.course,
+                                    city: extracted.city,
+                                    phone: extracted.phone,
                                     callId: call?.id || null,
                                     source: 'voice_fallback',
                                 });
                                 await fallbackLead.save();
-                                logger.info(`Admission lead saved from transcript: ${fallbackLead.fullName || fallbackLead.phone} (${fallbackLead._id})`);
+                                logger.info(`Admission lead saved from transcript: ${fallbackLead.fullName} (${fallbackLead._id})`);
+                            } else {
+                                logger.info(`[Webhook] Admission call but no extractable data. Transcript length: ${transcriptText.length}`);
                             }
                         }
                     } catch (e) {

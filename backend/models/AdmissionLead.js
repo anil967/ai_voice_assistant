@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const admissionLeadSchema = new mongoose.Schema({
-    fullName: { type: String, required: true },
+    fullName: { type: String, default: '' },
     age: { type: String },
     twelfthPercentage: { type: String },
     course: { type: String },
