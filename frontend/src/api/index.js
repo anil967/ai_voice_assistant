@@ -65,5 +65,8 @@ export const register = (data) => api.post('/auth/register', data);
 export const getLeads = (token, params = '') => api.get(`/leads${params ? `?${params}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` }
 });
+export const syncLeadsFromVapi = (token) => api.post('/leads/sync-from-vapi', {}, {
+    headers: { Authorization: `Bearer ${token}` }
+});
 
 export default api;

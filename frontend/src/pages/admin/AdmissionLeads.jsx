@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, RefreshCw, Download, Phone, Mail } from 'lucide-react';
+import { UserPlus, Search, RefreshCw, Download, CloudDownload } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getLeads } from '../../api';
+import { getLeads, syncLeadsFromVapi } from '../../api';
 
 const formatDate = (d) =>
     d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -13,6 +13,7 @@ const AdmissionLeads = () => {
     const [search, setSearch] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [syncing, setSyncing] = useState(false);
 
     const fetchLeads = async () => {
         setLoading(true);
@@ -64,6 +65,20 @@ const AdmissionLeads = () => {
         toast.success('CSV downloaded');
     };
 
+    const handleSyncFromVapi = async () => {
+        setSyncing(true);
+        try {
+            const token = localStorage.getItem('token');
+            const { data } = await syncLeadsFromVapi(token);
+            toast.success(`Synced: ${data.created || 0} new leads from Vapi call logs`);
+            await fetchLeads();
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Sync from Vapi failed');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -75,6 +90,15 @@ const AdmissionLeads = () => {
                     <p className="text-gray-500 mt-1">Leads collected from voice calls (admission flow)</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleSyncFromVapi}
+                        disabled={syncing || loading}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                        title="Fetch recent Vapi calls and extract admission leads from transcripts"
+                    >
+                        <CloudDownload size={16} className={syncing ? 'animate-pulse' : ''} />
+                        {syncing ? 'Syncing…' : 'Sync from Vapi'}
+                    </button>
                     <button
                         onClick={fetchLeads}
                         disabled={loading}
